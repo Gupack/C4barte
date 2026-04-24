@@ -1,0 +1,619 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Compensación Salarial</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f1f5f9;color:#1e293b;font-family:'Inter',sans-serif;min-height:100vh}
+.header{background:linear-gradient(135deg,#fff,#e2e8f0);border-bottom:1px solid #cbd5e1;padding:20px 40px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.header h1{font-size:26px;font-weight:700;background:linear-gradient(90deg,#2563eb,#059669);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{color:#64748b;font-size:13px;margin-top:2px}
+.kpi-row{display:flex;gap:12px;flex-wrap:wrap}
+.kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 20px;text-align:center;min-width:130px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.kpi-card .val{font-size:20px;font-weight:700;margin-top:4px}
+.kpi-card .lbl{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em}
+.tabs{display:flex;border-bottom:1px solid #e2e8f0;padding:0 40px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.tab-btn{padding:14px 26px;font-size:14px;font-weight:500;color:#64748b;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .2s}
+.tab-btn:hover{color:#1e293b}.tab-btn.active{color:#2563eb;border-bottom-color:#2563eb}
+.tab-content{display:none;padding:28px 40px}.tab-content.active{display:block}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.grid-1{display:grid;grid-template-columns:1fr;gap:20px;margin-bottom:20px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.05);position:relative}
+.card-clickable{cursor:zoom-in;transition:box-shadow .2s,transform .2s}
+.card-clickable:hover{box-shadow:0 8px 24px rgba(37,99,235,0.15);transform:translateY(-2px)}
+.card-clickable:hover::after{content:"🔍 Click para ampliar";position:absolute;top:10px;right:14px;font-size:11px;color:#2563eb;background:rgba(37,99,235,0.08);padding:3px 10px;border-radius:20px;font-weight:500}
+.card h2{font-size:15px;font-weight:600;color:#1e293b;margin-bottom:16px}
+.chart-wrap{position:relative;height:360px}
+.chart-wrap.tall{height:440px}
+.chart-wrap.short{height:280px}
+.trend-bar{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.trend-bar label{font-size:12px;color:#64748b}
+.trend-btn{padding:4px 12px;font-size:12px;border-radius:20px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;cursor:pointer;transition:all .15s}
+.trend-btn.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.zoom-hint{font-size:11px;color:#94a3b8;margin-left:auto}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.filters label{display:flex;align-items:center;gap:5px;font-size:13px;color:#475569;cursor:pointer}
+.filters input[type=checkbox]{width:14px;height:14px;accent-color:#2563eb;cursor:pointer}
+.filters select,.sim-filter-row select,.sim-filter-row input{background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-size:13px;outline:none;cursor:pointer}
+/* Simulator */
+.sim-layout{display:grid;grid-template-columns:1fr 1.6fr;gap:20px}
+.sim-filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0}
+.sim-filter-row input[type=text]{flex:1;min-width:140px}
+.sim-table{width:100%;border-collapse:collapse;font-size:13px}
+.sim-table th{background:#f1f5f9;color:#64748b;font-weight:600;padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #e2e8f0}
+.sim-table td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:#1e293b}
+.sim-table tr:hover td{background:#f8fafc}
+.sim-table input[type=number]{background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;color:#1e293b;padding:5px 8px;width:130px;font-size:13px;outline:none}
+.sim-table input[type=number]:focus{border-color:#2563eb}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-red{background:rgba(220,38,38,0.1);color:#dc2626}
+.badge-green{background:rgba(5,150,105,0.1);color:#059669}
+.badge-yellow{background:rgba(217,119,6,0.1);color:#d97706}
+.btn-reset{background:#ede9fe;border:1px solid #c4b5fd;color:#7c3aed;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;transition:all .2s}
+.btn-reset:hover{background:#ddd6fe}
+.chip{display:inline-flex;align-items:center;background:#f1f5f9;border-radius:6px;padding:3px 9px;font-size:12px;color:#64748b;margin-left:6px;border:1px solid #e2e8f0}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.75);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:20px;padding:32px;width:92vw;max-width:1200px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.3);animation:popIn .25s ease}
+@keyframes popIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-header h3{font-size:18px;font-weight:600;color:#1e293b}
+.modal-close{background:#f1f5f9;border:none;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer;color:#475569;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-close:hover{background:#e2e8f0;color:#1e293b}
+.modal-chart-wrap{flex:1;min-height:400px;position:relative}
+.modal-trend-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Dashboard de Compensación</h1>
+    <p>Valoración de Cargos &amp; Análisis Salarial</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="lbl">Cargos</div><div class="val" id="k-cargos" style="color:#2563eb">0</div></div>
+    <div class="kpi-card"><div class="lbl">Prom. Actual</div><div class="val" id="k-actual" style="color:#60a5fa">$0</div></div>
+    <div class="kpi-card"><div class="lbl">Prom. Mercado</div><div class="val" id="k-mercado" style="color:#34d399">$0</div></div>
+    <div class="kpi-card"><div class="lbl">Costo Nivelación</div><div class="val" id="k-costo" style="color:#fb923c">$0</div></div>
+    <div class="kpi-card"><div class="lbl">Subpagados</div><div class="val" id="k-sub" style="color:#f87171">0</div></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('analisis',this)">📊 Análisis General</button>
+  <button class="tab-btn" onclick="showTab('curva',this)">📈 Curva Salarial</button>
+  <button class="tab-btn" onclick="showTab('simulador',this)">🔬 Simulador</button>
+  <button class="tab-btn" onclick="showTab('detalles',this)">📝 Detalles</button>
+</div>
+
+<!-- TAB 1 -->
+<div id="tab-analisis" class="tab-content active">
+  <div class="grid-2">
+    <div class="card card-clickable" onclick="openModal('brechaChart','Brecha Salarial por Cargo','brecha')">
+      <h2>Brecha Salarial por Cargo <span class="chip">Actual vs Mercado %</span></h2>
+      <div class="chart-wrap tall"><canvas id="brechaChart"></canvas></div>
+    </div>
+    <div class="card card-clickable" onclick="openModal('barChart','Comparativa Salarial por Cargo','bar')">
+      <h2>Comparativa Salarial por Cargo</h2>
+      <div class="chart-wrap tall"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card card-clickable" onclick="openModal('rankChart','Ranking de Cargos por Puntos','rank')">
+      <h2>Ranking de Cargos por Puntos de Valoración</h2>
+      <div class="chart-wrap"><canvas id="rankChart"></canvas></div>
+    </div>
+    <div class="card card-clickable" onclick="openModal('costoChart','Costo de Nivelación al Mercado','costo')">
+      <h2>Costo de Nivelación al Mercado <span class="chip">Subpagados</span></h2>
+      <div class="chart-wrap"><canvas id="costoChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2 -->
+<div id="tab-curva" class="tab-content">
+  <div class="card">
+    <h2>Curva Salarial Interactiva — Puntos vs Salario</h2>
+    <div class="filters">
+      <label><input type="checkbox" id="f-actual" checked> Salario Actual</label>
+      <label><input type="checkbox" id="f-mercado" checked> Salario Mercado</label>
+      <label><input type="checkbox" id="f-trend" checked> Líneas de Tendencia</label>
+      <select id="f-estado">
+        <option value="todos">Todos los Estados</option>
+        <option value="sub">Subpagado</option>
+        <option value="sobre">Sobrepagado</option>
+      </select>
+    </div>
+    <div class="trend-bar">
+      <label>Tipo de tendencia:</label>
+      <button class="trend-btn active" id="curva-trend-lineal" onclick="setCurvaTrend('lineal',this)">Lineal</button>
+      <button class="trend-btn" id="curva-trend-exp" onclick="setCurvaTrend('exponencial',this)">Exponencial</button>
+      <button class="trend-btn" id="curva-trend-log" onclick="setCurvaTrend('logaritmica',this)">Logarítmica</button>
+      <span class="zoom-hint">🖱️ Rueda del ratón para zoom · Arrastrar para mover · Doble click para resetear</span>
+    </div>
+    <div class="chart-wrap tall"><canvas id="interactiveChart"></canvas></div>
+  </div>
+</div>
+
+<!-- TAB 3 SIMULADOR -->
+<div id="tab-simulador" class="tab-content">
+  <div class="sim-layout">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h2 style="margin:0">Editor de Salarios</h2>
+        <button class="btn-reset" onclick="resetSim()">↺ Restablecer</button>
+      </div>
+      <div class="sim-filter-row">
+        <input type="text" id="sim-search" placeholder="🔍 Buscar cargo..." oninput="renderSimTable()" style="flex:1;min-width:140px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-size:13px;outline:none">
+        <select id="sim-filter-estado" onchange="renderSimTable()">
+          <option value="todos">Todos los estados</option>
+          <option value="sub">Subpagados ▼</option>
+          <option value="sobre">Sobrepagados ▲</option>
+          <option value="ok">En equilibrio ✓</option>
+        </select>
+        <select id="sim-sort" onchange="renderSimTable()">
+          <option value="puntos-desc">Mayor puntos</option>
+          <option value="puntos-asc">Menor puntos</option>
+          <option value="brecha-desc">Mayor brecha</option>
+          <option value="cargo-az">Cargo A→Z</option>
+        </select>
+      </div>
+      <div style="overflow-y:auto;max-height:480px">
+        <table class="sim-table">
+          <thead><tr><th>Cargo</th><th>Pts</th><th>Salario Actual</th><th>Mercado</th><th>Estado</th></tr></thead>
+          <tbody id="sim-tbody"></tbody>
+        </table>
+      </div>
+      <div id="sim-count" style="font-size:12px;color:#94a3b8;margin-top:8px;text-align:right"></div>
+    </div>
+    <div class="card">
+      <h2>Curva Salarial — Vista Simulada</h2>
+      <div class="trend-bar">
+        <label style="font-size:12px;color:#64748b">Tendencia:</label>
+        <button class="trend-btn active" onclick="setSimTrend('lineal',this)">Lineal</button>
+        <button class="trend-btn" onclick="setSimTrend('exponencial',this)">Exponencial</button>
+        <button class="trend-btn" onclick="setSimTrend('logaritmica',this)">Logarítmica</button>
+        <span class="zoom-hint">🖱️ Zoom con rueda</span>
+      </div>
+      <div class="chart-wrap tall"><canvas id="simChart"></canvas></div>
+      <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="kpi-card"><div class="lbl">Total Masa Salarial</div><div class="val" id="sim-total" style="color:#60a5fa;font-size:15px">$0</div></div>
+        <div class="kpi-card"><div class="lbl">Variación vs Actual</div><div class="val" id="sim-delta" style="font-size:15px">$0</div></div>
+        <div class="kpi-card"><div class="lbl">Subpagados</div><div class="val" id="sim-sub" style="color:#f87171;font-size:15px">0</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 4 -->
+<div id="tab-detalles" class="tab-content">
+  <div class="card">
+    <h2>Desglose de Puntuación por Cargo</h2>
+    <div style="overflow-x:auto">
+      <table class="sim-table" id="detalles-table">
+        <thead><tr>
+          <th>Cargo</th><th style="text-align:center">Formación</th><th style="text-align:center">Supervisión</th>
+          <th style="text-align:center">Contacto</th><th style="text-align:center">Sol. Problemas</th>
+          <th style="text-align:center">Responsabilidad</th><th style="text-align:center">Autonomía</th>
+          <th style="text-align:center">Total</th><th style="text-align:center">Actual</th><th style="text-align:center">Mercado</th><th style="text-align:center">Estado</th>
+        </tr></thead>
+        <tbody id="detalles-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalCheck(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Gráfica</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-trend-bar" id="modal-trend-bar"></div>
+    <div class="modal-chart-wrap"><canvas id="modalCanvas"></canvas></div>
+  </div>
+</div>
+<script>
+const D=[
+{cargo:"Contador",puntos:1088,actual:3500000,mercado:3880000,f_exp:175,f_amb:111,f_rel:115,f_sol:205,f_afe:178,f_aut:304},
+{cargo:"Jefe de Planta",puntos:1108,actual:6500000,mercado:5320968,f_exp:175,f_amb:122,f_rel:132,f_sol:197,f_afe:178,f_aut:304},
+{cargo:"Director comercial",puntos:1487,actual:10000000,mercado:7183800,f_exp:175,f_amb:111,f_rel:230,f_sol:289,f_afe:222,f_aut:460},
+{cargo:"Analista de Inventarios",puntos:402,actual:1950905,mercado:2328667,f_exp:100,f_amb:57,f_rel:50,f_sol:62,f_afe:76,f_aut:57},
+{cargo:"Analista de Cartera",puntos:488,actual:2250738,mercado:2355667,f_exp:100,f_amb:57,f_rel:100,f_sol:59,f_afe:115,f_aut:57},
+{cargo:"Asesor comercial",puntos:369,actual:2417872,mercado:2162726,f_exp:76,f_amb:0,f_rel:100,f_sol:40,f_afe:115,f_aut:38},
+{cargo:"Logístico",puntos:674,actual:3500000,mercado:3366667,f_exp:132,f_amb:83,f_rel:132,f_sol:118,f_afe:133,f_aut:76},
+{cargo:"Aux Contable",puntos:344,actual:1950905,mercado:2256833,f_exp:100,f_amb:57,f_rel:57,f_sol:58,f_afe:43,f_aut:29},
+{cargo:"Facturacion",puntos:251,actual:1950905,mercado:1883635,f_exp:66,f_amb:43,f_rel:57,f_sol:23,f_afe:43,f_aut:19},
+{cargo:"Supervisor de Planta",puntos:483,actual:3000000,mercado:2410781,f_exp:100,f_amb:69,f_rel:76,f_sol:74,f_afe:88,f_aut:76},
+{cargo:"Operario Planta",puntos:153,actual:1950905,mercado:1958705,f_exp:76,f_amb:0,f_rel:25,f_sol:11,f_afe:29,f_aut:12},
+{cargo:"Auxiliar Talento Humano",puntos:275,actual:1750905,mercado:1750905,f_exp:87,f_amb:43,f_rel:57,f_sol:26,f_afe:43,f_aut:19}
+];
+
+const fmt=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(v);
+const fmtM=v=>'$'+(v/1000000).toFixed(2)+'M';
+const fmtPct=v=>(v>=0?'+':'')+v.toFixed(1)+'%';
+
+let simData=D.map(r=>({...r}));
+let curvaTrendType='lineal', simTrendType='lineal';
+let simChartInst=null, interactiveChartInst=null, modalChartInst=null;
+let currentModalType='';
+
+// --- TREND CALCULATIONS ---
+function calcLinear(pts){
+  const n=pts.length; if(n<2)return[];
+  let sx=0,sy=0,sxy=0,sxx=0;
+  for(const p of pts){sx+=p.x;sy+=p.y;sxy+=p.x*p.y;sxx+=p.x*p.x;}
+  const d=n*sxx-sx*sx; if(d===0)return[];
+  const m=(n*sxy-sx*sy)/d,b=(sy-m*sx)/n;
+  const xs=pts.map(p=>p.x),mn=Math.min(...xs),mx=Math.max(...xs);
+  const steps=30,step=(mx-mn)/steps;
+  return Array.from({length:steps+1},(_,i)=>{const x=mn+i*step;return{x,y:m*x+b};});
+}
+
+function calcExp(pts){
+  const valid=pts.filter(p=>p.y>0); if(valid.length<2)return calcLinear(pts);
+  const lpts=valid.map(p=>({x:p.x,y:Math.log(p.y)}));
+  const lin=calcLinear(lpts); if(!lin.length)return[];
+  const n=valid.length; let sx=0,slny=0,sxlny=0,sxx=0;
+  for(const p of lpts){sx+=p.x;slny+=p.y;sxlny+=p.x*p.y;sxx+=p.x*p.x;}
+  const d=n*sxx-sx*sx; if(d===0)return[];
+  const b=(n*sxlny-sx*slny)/d,lna=(slny-b*sx)/n,a=Math.exp(lna);
+  const xs=valid.map(p=>p.x),mn=Math.min(...xs),mx=Math.max(...xs);
+  const steps=30,step=(mx-mn)/steps;
+  return Array.from({length:steps+1},(_,i)=>{const x=mn+i*step;return{x,y:a*Math.exp(b*x)};});
+}
+
+function calcLog(pts){
+  const valid=pts.filter(p=>p.x>0); if(valid.length<2)return calcLinear(pts);
+  const n=valid.length; let slnx=0,sy=0,slnxy=0,slnxx=0;
+  for(const p of valid){const lx=Math.log(p.x);slnx+=lx;sy+=p.y;slnxy+=lx*p.y;slnxx+=lx*lx;}
+  const d=n*slnxx-slnx*slnx; if(d===0)return[];
+  const b=(n*slnxy-slnx*sy)/d,a=(sy-b*slnx)/n;
+  const xs=valid.map(p=>p.x),mn=Math.min(...xs),mx=Math.max(...xs);
+  const steps=30,step=(mx-mn)/steps;
+  return Array.from({length:steps+1},(_,i)=>{const x=mn+i*step;return{x,y:a+b*Math.log(x)};});
+}
+
+function calcTrend(pts,type){
+  if(type==='exponencial')return calcExp(pts);
+  if(type==='logaritmica')return calcLog(pts);
+  return calcLinear(pts);
+}
+
+const zoomPlugin={wheel:{enabled:true},pinch:{enabled:true},mode:'xy',onZoomComplete:null};
+function getZoomOpts(){return{zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'xy'},pan:{enabled:true,mode:'xy'}};}
+
+// --- INIT ---
+function showTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='simulador')updateSimChart();
+  if(id==='curva')updateInteractiveChart();
+}
+
+function initDashboard(){
+  const n=D.length;
+  const avgA=D.reduce((s,r)=>s+r.actual,0)/n;
+  const avgM=D.reduce((s,r)=>s+r.mercado,0)/n;
+  const subs=D.filter(r=>r.actual<r.mercado);
+  const costo=subs.reduce((s,r)=>s+(r.mercado-r.actual),0);
+  document.getElementById('k-cargos').textContent=n;
+  document.getElementById('k-actual').textContent=fmtM(avgA);
+  document.getElementById('k-mercado').textContent=fmtM(avgM);
+  document.getElementById('k-costo').textContent=fmtM(costo);
+  document.getElementById('k-sub').textContent=subs.length;
+  buildBrechaChart();buildBarChart();buildRankChart();buildCostoChart();
+  renderSimTable();buildDetallesTable();updateInteractiveChart();
+}
+
+// --- CHARTS TAB 1 ---
+function buildBrechaChart(){
+  const s=[...D].sort((a,b)=>((a.actual/a.mercado)-1)-((b.actual/b.mercado)-1));
+  const vals=s.map(r=>(((r.actual/r.mercado)-1)*100));
+  const colors=vals.map(v=>v<0?'rgba(248,113,113,0.85)':v>5?'rgba(251,191,36,0.85)':'rgba(52,211,153,0.85)');
+  new Chart(document.getElementById('brechaChart'),{
+    type:'bar',
+    data:{labels:s.map(r=>r.cargo),datasets:[{label:'Brecha %',data:vals,backgroundColor:colors,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{color:'#475569',maxRotation:40,font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:'#475569',callback:v=>v.toFixed(0)+'%'},grid:{color:'#e2e8f0'},title:{display:true,text:'% vs Mercado',color:'#475569'}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmtPct(ctx.raw)} vs mercado`}},zoom:getZoomOpts()}}
+  });
+}
+
+function buildBarChart(){
+  new Chart(document.getElementById('barChart'),{
+    type:'bar',
+    data:{labels:D.map(r=>r.cargo),datasets:[
+      {label:'Salario Actual',data:D.map(r=>r.actual),backgroundColor:'rgba(96,165,250,0.85)',borderRadius:4},
+      {label:'Salario Mercado',data:D.map(r=>r.mercado),backgroundColor:'rgba(52,211,153,0.85)',borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{color:'#475569',maxRotation:40,font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:'#475569',callback:v=>fmtM(v)},grid:{color:'#e2e8f0'}}},
+      plugins:{legend:{labels:{color:'#334155'}},tooltip:{callbacks:{label:ctx=>fmt(ctx.raw)}},zoom:getZoomOpts()}}
+  });
+}
+
+function buildRankChart(){
+  const s=[...D].sort((a,b)=>a.puntos-b.puntos);
+  const grad=s.map((_,i)=>`hsl(${210+i*10},70%,${55+i*2}%)`);
+  new Chart(document.getElementById('rankChart'),{
+    type:'bar',
+    data:{labels:s.map(r=>r.cargo),datasets:[{label:'Puntos',data:s.map(r=>r.puntos),backgroundColor:grad,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{color:'#475569'},grid:{color:'#e2e8f0'},title:{display:true,text:'Puntos de Valoración',color:'#475569'}},
+        y:{ticks:{color:'#334155',font:{size:11}},grid:{display:false}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} puntos`}},zoom:getZoomOpts()}}
+  });
+}
+
+function buildCostoChart(){
+  const s=D.filter(r=>r.actual<r.mercado).sort((a,b)=>(b.mercado-b.actual)-(a.mercado-a.actual));
+  new Chart(document.getElementById('costoChart'),{
+    type:'bar',
+    data:{labels:s.map(r=>r.cargo),datasets:[{label:'Costo Nivelación',data:s.map(r=>r.mercado-r.actual),backgroundColor:'rgba(251,146,60,0.85)',borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      scales:{x:{ticks:{color:'#475569',callback:v=>fmtM(v)},grid:{color:'#e2e8f0'}},
+        y:{ticks:{color:'#334155',font:{size:11}},grid:{display:false}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`Brecha: ${fmt(ctx.raw)}`}},zoom:getZoomOpts()}}
+  });
+}
+
+// --- CURVA SALARIAL ---
+function setCurvaTrend(t,btn){
+  curvaTrendType=t;
+  document.querySelectorAll('#tab-curva .trend-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateInteractiveChart();
+}
+
+function updateInteractiveChart(){
+  const showA=document.getElementById('f-actual').checked;
+  const showM=document.getElementById('f-mercado').checked;
+  const showT=document.getElementById('f-trend').checked;
+  const estado=document.getElementById('f-estado').value;
+  let fd=D;
+  if(estado==='sub') fd=D.filter(r=>r.actual<r.mercado);
+  else if(estado==='sobre') fd=D.filter(r=>r.actual>r.mercado);
+  const datasets=[];
+  if(showA){
+    const pts=fd.map(r=>({x:r.puntos,y:r.actual,cargo:r.cargo}));
+    datasets.push({label:'Salario Actual',data:pts,type:'scatter',backgroundColor:'rgba(96,165,250,0.9)',borderColor:'#60a5fa',pointRadius:8,pointHoverRadius:11});
+    if(showT&&pts.length>1){const t=calcTrend(pts,curvaTrendType);if(t.length)datasets.push({label:'Tendencia Actual ('+curvaTrendType+')',data:t,type:'line',borderColor:'rgba(96,165,250,0.7)',borderWidth:2.5,borderDash:[6,4],pointRadius:0,fill:false,tension:0.4});}
+  }
+  if(showM){
+    const pts=fd.map(r=>({x:r.puntos,y:r.mercado,cargo:r.cargo}));
+    datasets.push({label:'Salario Mercado',data:pts,type:'scatter',backgroundColor:'rgba(52,211,153,0.9)',borderColor:'#34d399',pointRadius:8,pointHoverRadius:11});
+    if(showT&&pts.length>1){const t=calcTrend(pts,curvaTrendType);if(t.length)datasets.push({label:'Tendencia Mercado ('+curvaTrendType+')',data:t,type:'line',borderColor:'rgba(52,211,153,0.7)',borderWidth:2.5,borderDash:[6,4],pointRadius:0,fill:false,tension:0.4});}
+  }
+  if(interactiveChartInst){interactiveChartInst.data.datasets=datasets;interactiveChartInst.update();}
+  else{
+    interactiveChartInst=new Chart(document.getElementById('interactiveChart'),{
+      data:{datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{x:{type:'linear',title:{display:true,text:'Puntos Totales de Valoración',color:'#475569'},ticks:{color:'#475569'},grid:{color:'#e2e8f0'}},
+          y:{title:{display:true,text:'Salario (COP)',color:'#475569'},ticks:{color:'#475569',callback:v=>fmtM(v)},grid:{color:'#e2e8f0'}}},
+        plugins:{legend:{labels:{color:'#334155'}},
+          tooltip:{callbacks:{label:ctx=>ctx.dataset.type==='scatter'?`${ctx.raw.cargo}: ${fmt(ctx.raw.y)} (${ctx.raw.x} pts)`:ctx.dataset.label}},
+          zoom:getZoomOpts()},
+        onDblClick:()=>{if(interactiveChartInst)interactiveChartInst.resetZoom();}}
+    });
+    document.getElementById('interactiveChart').addEventListener('dblclick',()=>{if(interactiveChartInst)interactiveChartInst.resetZoom();});
+  }
+}
+document.getElementById('f-actual').addEventListener('change',updateInteractiveChart);
+document.getElementById('f-mercado').addEventListener('change',updateInteractiveChart);
+document.getElementById('f-trend').addEventListener('change',updateInteractiveChart);
+document.getElementById('f-estado').addEventListener('change',updateInteractiveChart);
+
+// --- SIMULADOR ---
+function getSimFiltered(){
+  const search=(document.getElementById('sim-search').value||'').toLowerCase().trim();
+  const estado=document.getElementById('sim-filter-estado').value;
+  const sort=document.getElementById('sim-sort').value;
+  let rows=simData.filter(r=>{
+    if(search&&!r.cargo.toLowerCase().includes(search))return false;
+    if(estado==='sub'&&r.actual>=r.mercado)return false;
+    if(estado==='sobre'&&r.actual<=r.mercado)return false;
+    if(estado==='ok'&&Math.abs(r.actual-r.mercado)>r.mercado*0.02)return false;
+    return true;
+  });
+  if(sort==='puntos-desc')rows.sort((a,b)=>b.puntos-a.puntos);
+  else if(sort==='puntos-asc')rows.sort((a,b)=>a.puntos-b.puntos);
+  else if(sort==='brecha-desc')rows.sort((a,b)=>Math.abs(b.actual-b.mercado)-Math.abs(a.actual-a.mercado));
+  else rows.sort((a,b)=>a.cargo.localeCompare(b.cargo));
+  return rows;
+}
+
+function getSimIdx(cargo){return simData.findIndex(r=>r.cargo===cargo);}
+
+function renderSimTable(){
+  const rows=getSimFiltered();
+  const tbody=document.getElementById('sim-tbody');
+  tbody.innerHTML='';
+  rows.forEach(r=>{
+    const idx=getSimIdx(r.cargo);
+    const diff=r.actual-r.mercado;
+    const pct=((r.actual/r.mercado-1)*100).toFixed(1);
+    const isLow=r.actual<r.mercado;
+    const isOk=Math.abs(diff)<=r.mercado*0.02;
+    const bClass=isOk?'badge-yellow':isLow?'badge-red':'badge-green';
+    const bTxt=isOk?'≈ OK':isLow?'▼ Sub':'▲ Sobre';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-weight:500;white-space:nowrap">${r.cargo}</td>
+      <td><span class="chip" style="margin:0">${r.puntos}</span></td>
+      <td><input type="number" id="si-${idx}" value="${r.actual}" step="50000" onchange="onSimChange(${idx},this.value)" style="width:120px"></td>
+      <td style="color:#64748b;font-size:12px">${fmtM(r.mercado)}</td>
+      <td><span class="badge ${bClass}" id="sb-${idx}">${bTxt}</span><br><span style="font-size:10px;color:#94a3b8">${pct}%</span></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('sim-count').textContent=`Mostrando ${rows.length} de ${simData.length} cargos`;
+  updateSimKPIs();
+}
+
+function onSimChange(i,val){
+  simData[i].actual=parseFloat(val)||0;
+  const r=simData[i];
+  const isLow=r.actual<r.mercado;
+  const isOk=Math.abs(r.actual-r.mercado)<=r.mercado*0.02;
+  const badge=document.getElementById('sb-'+i);
+  if(badge){badge.className='badge '+(isOk?'badge-yellow':isLow?'badge-red':'badge-green');badge.textContent=isOk?'≈ OK':isLow?'▼ Sub':'▲ Sobre';}
+  updateSimKPIs();updateSimChart();
+}
+
+function updateSimKPIs(){
+  const total=simData.reduce((s,r)=>s+r.actual,0);
+  const orig=D.reduce((s,r)=>s+r.actual,0);
+  const delta=total-orig;
+  document.getElementById('sim-total').textContent=fmtM(total);
+  const el=document.getElementById('sim-delta');
+  el.textContent=(delta>=0?'+':'')+fmtM(delta);
+  el.style.color=delta>0?'#f87171':delta<0?'#34d399':'#94a3b8';
+  document.getElementById('sim-sub').textContent=simData.filter(r=>r.actual<r.mercado).length;
+}
+
+function setSimTrend(t,btn){
+  simTrendType=t;
+  btn.closest('.trend-bar').querySelectorAll('.trend-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSimChart();
+}
+
+function updateSimChart(){
+  const ptsA=simData.map(r=>({x:r.puntos,y:r.actual,cargo:r.cargo}));
+  const ptsM=simData.map(r=>({x:r.puntos,y:r.mercado,cargo:r.cargo}));
+  const tA=calcTrend(ptsA,simTrendType),tM=calcTrend(ptsM,simTrendType);
+  const datasets=[
+    {label:'Salario Simulado',data:ptsA,type:'scatter',backgroundColor:'rgba(167,139,250,0.9)',borderColor:'#a78bfa',pointRadius:8,pointHoverRadius:11},
+    {label:'Salario Mercado',data:ptsM,type:'scatter',backgroundColor:'rgba(52,211,153,0.9)',borderColor:'#34d399',pointRadius:8,pointHoverRadius:11,pointStyle:'triangle'},
+  ];
+  if(tA.length)datasets.push({label:'Tendencia Simulada',data:tA,type:'line',borderColor:'rgba(167,139,250,0.7)',borderWidth:2.5,borderDash:[6,4],pointRadius:0,fill:false,tension:0.4});
+  if(tM.length)datasets.push({label:'Tendencia Mercado',data:tM,type:'line',borderColor:'rgba(52,211,153,0.7)',borderWidth:2.5,borderDash:[6,4],pointRadius:0,fill:false,tension:0.4});
+  if(simChartInst){simChartInst.data.datasets=datasets;simChartInst.update();}
+  else{
+    simChartInst=new Chart(document.getElementById('simChart'),{
+      data:{datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{x:{type:'linear',title:{display:true,text:'Puntos de Valoración',color:'#475569'},ticks:{color:'#475569'},grid:{color:'#e2e8f0'}},
+          y:{title:{display:true,text:'Salario (COP)',color:'#475569'},ticks:{color:'#475569',callback:v=>fmtM(v)},grid:{color:'#e2e8f0'}}},
+        plugins:{legend:{labels:{color:'#334155'}},
+          tooltip:{callbacks:{label:ctx=>ctx.dataset.type==='scatter'?`${ctx.raw.cargo}: ${fmt(ctx.raw.y)}`:ctx.dataset.label}},
+          zoom:getZoomOpts()}}
+    });
+    document.getElementById('simChart').addEventListener('dblclick',()=>{if(simChartInst)simChartInst.resetZoom();});
+  }
+}
+
+function resetSim(){
+  simData=D.map(r=>({...r}));
+  renderSimTable();updateSimChart();
+}
+
+// --- DETALLES ---
+function buildDetallesTable(){
+  const tbody=document.getElementById('detalles-tbody');
+  [...D].sort((a,b)=>b.puntos-a.puntos).forEach(r=>{
+    const isLow=r.actual<r.mercado;
+    const isOk=Math.abs(r.actual-r.mercado)<=r.mercado*0.02;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-weight:600">${r.cargo}</td>
+      <td style="text-align:center">${r.f_exp}</td><td style="text-align:center">${r.f_amb}</td>
+      <td style="text-align:center">${r.f_rel}</td><td style="text-align:center">${r.f_sol}</td>
+      <td style="text-align:center">${r.f_afe}</td><td style="text-align:center">${r.f_aut}</td>
+      <td style="text-align:center"><span class="chip" style="margin:0;font-weight:700;color:#2563eb">${r.puntos}</span></td>
+      <td style="text-align:center">${fmtM(r.actual)}</td><td style="text-align:center">${fmtM(r.mercado)}</td>
+      <td style="text-align:center"><span class="badge ${isOk?'badge-yellow':isLow?'badge-red':'badge-green'}">${isOk?'OK':isLow?'Sub':'Sobre'}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// --- MODAL ---
+const MODAL_CHART_BUILDERS={
+  brecha:()=>{
+    const s=[...D].sort((a,b)=>((a.actual/a.mercado)-1)-((b.actual/b.mercado)-1));
+    const vals=s.map(r=>(((r.actual/r.mercado)-1)*100));
+    const colors=vals.map(v=>v<0?'rgba(248,113,113,0.85)':v>5?'rgba(251,191,36,0.85)':'rgba(52,211,153,0.85)');
+    return new Chart(document.getElementById('modalCanvas'),{type:'bar',
+      data:{labels:s.map(r=>r.cargo),datasets:[{label:'Brecha %',data:vals,backgroundColor:colors,borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{x:{ticks:{color:'#475569',maxRotation:35,font:{size:12}},grid:{display:false}},
+          y:{ticks:{color:'#475569',callback:v=>v.toFixed(0)+'%'},grid:{color:'#e2e8f0'},title:{display:true,text:'% vs Mercado',color:'#475569'}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmtPct(ctx.raw)} vs mercado`}},zoom:getZoomOpts()}}});
+  },
+  bar:()=>{
+    return new Chart(document.getElementById('modalCanvas'),{type:'bar',
+      data:{labels:D.map(r=>r.cargo),datasets:[
+        {label:'Salario Actual',data:D.map(r=>r.actual),backgroundColor:'rgba(96,165,250,0.85)',borderRadius:4},
+        {label:'Salario Mercado',data:D.map(r=>r.mercado),backgroundColor:'rgba(52,211,153,0.85)',borderRadius:4}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{x:{ticks:{color:'#475569',maxRotation:35,font:{size:12}},grid:{display:false}},
+          y:{ticks:{color:'#475569',callback:v=>fmtM(v)},grid:{color:'#e2e8f0'}}},
+        plugins:{legend:{labels:{color:'#334155'}},tooltip:{callbacks:{label:ctx=>fmt(ctx.raw)}},zoom:getZoomOpts()}}});
+  },
+  rank:()=>{
+    const s=[...D].sort((a,b)=>a.puntos-b.puntos);
+    const grad=s.map((_,i)=>`hsl(${210+i*10},70%,${55+i*2}%)`);
+    return new Chart(document.getElementById('modalCanvas'),{type:'bar',
+      data:{labels:s.map(r=>r.cargo),datasets:[{label:'Puntos',data:s.map(r=>r.puntos),backgroundColor:grad,borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        scales:{x:{ticks:{color:'#475569'},grid:{color:'#e2e8f0'},title:{display:true,text:'Puntos de Valoración',color:'#475569'}},
+          y:{ticks:{color:'#334155',font:{size:13}},grid:{display:false}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} puntos`}},zoom:getZoomOpts()}}});
+  },
+  costo:()=>{
+    const s=D.filter(r=>r.actual<r.mercado).sort((a,b)=>(b.mercado-b.actual)-(a.mercado-a.actual));
+    return new Chart(document.getElementById('modalCanvas'),{type:'bar',
+      data:{labels:s.map(r=>r.cargo),datasets:[{label:'Costo Nivelación',data:s.map(r=>r.mercado-r.actual),backgroundColor:'rgba(251,146,60,0.85)',borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        scales:{x:{ticks:{color:'#475569',callback:v=>fmtM(v)},grid:{color:'#e2e8f0'}},
+          y:{ticks:{color:'#334155',font:{size:13}},grid:{display:false}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`Brecha: ${fmt(ctx.raw)}`}},zoom:getZoomOpts()}}});
+  }
+};
+
+let modalTrendType='lineal';
+function buildModalTrendBar(type){
+  if(!['brecha','bar','rank','costo'].includes(type)){document.getElementById('modal-trend-bar').innerHTML='';return;}
+  const bar=document.getElementById('modal-trend-bar');
+  bar.innerHTML='';
+}
+
+function openModal(canvasId,title,type){
+  currentModalType=type;
+  document.getElementById('modal-title').textContent=title;
+  const overlay=document.getElementById('modalOverlay');
+  overlay.classList.add('open');
+  if(modalChartInst){modalChartInst.destroy();modalChartInst=null;}
+  const mc=document.getElementById('modalCanvas');
+  mc.width=mc.parentElement.offsetWidth;
+  mc.height=mc.parentElement.offsetHeight;
+  setTimeout(()=>{
+    if(MODAL_CHART_BUILDERS[type])modalChartInst=MODAL_CHART_BUILDERS[type]();
+  },50);
+  document.getElementById('modal-trend-bar').innerHTML='<span style="font-size:12px;color:#94a3b8">🖱️ Rueda del ratón para zoom · Arrastrar para mover · Doble-click para resetear zoom</span>';
+  document.getElementById('modalCanvas').addEventListener('dblclick',()=>{if(modalChartInst)modalChartInst.resetZoom();},{once:false});
+}
+
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  if(modalChartInst){modalChartInst.destroy();modalChartInst=null;}
+}
+function closeModalCheck(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+document.addEventListener('DOMContentLoaded',initDashboard);
+</script>
+</body>
+</html>
